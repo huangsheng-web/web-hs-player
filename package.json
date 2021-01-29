@@ -1,0 +1,15 @@
+{
+  "name": "hsplayer",
+  "version": "1.0.0",
+  "description": "mediasource player",
+  "main": "index.js",
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "rollup": "^2.36.1"
+  }
+}

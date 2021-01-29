@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>hs-demo</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="index.css">
+  <style>
+    .el-main {
+      display: flex;
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .video-box {
+      width: 400px;
+      height: 500px;
+      border-radius: 4px;
+      border: 1px solid gray;
+      margin-bottom: 20px;
+    }
+    .video-main {
+      width: 100%;
+    }
+    .video-info {
+      padding: 5px;
+    }
+    .el-input {margin-bottom: 5px}
+    .video-btn .el-button {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <el-button style="margin: 20px 0 0 20px;" @click="addPlayer">Add+</el-button>
+  <el-main>
+    <div v-for="(item, index) in videoList" class="video-box">
+      <div class="video-main">
+        <video width="100%" height="330px" controls autoplay :id="item.el"></video>
+      </div>
+      <div class="video-info">
+        <el-input placeholder="输入视频地址" v-model="item.assetURL">
+          <template slot="prepend">视频地址</template>
+        </el-input>
+        <div class="video-btn">
+          <el-button v-show="!item.isPlaying" :loading="item.videoLoading" @click="wsInit(item)">play</el-button>
+          <el-button v-show="item.isPlaying" @click="wsDestroy(item)">destory</el-button>
+          <el-button @click="wsRemove(index)">remove</el-button>
+          <el-button @click="wsPause(item)">pause</el-button>
+          <el-button @click="wsContinue(item)">continue</el-button>
+          <el-button @click="wsClose(item)">close</el-button>
+          <el-button @click="wsCheckBu(item)">checkBuffered</el-button>
+          <el-radio-group v-model="item.type">
+            <el-radio label="live">live</el-radio>
+            <el-radio label="playback">playback</el-radio>
+          </el-radio-group>
+          <el-select
+            v-model="item.playbackRate"
+            @change="rateHandle(item)"
+            placeholder="请选择播放速度">
+            <el-option
+              v-for="item in rateList"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value">
+            </el-option>
+          </el-select>
+        </div>
+      </div>
+    </div>
+  </el-main>
+</div>
+
+<script src="./vue.js"></script>
+<script src="index.js"></script>
+<script src="hsPlayer.js"></script>
+<script>
+  var vue = new Vue({
+    el: '#app',
+    data: {
+      videoList: [],
+      loading: null,
+      rateList: [
+        {label: '8倍速', value: 8, speed: 8},
+        {label: '4倍速', value: 4, speed: 4},
+        {label: '2倍速', value: 2, speed: 2},
+        {label: '原速', value: 1, speed: 1},
+        {label: '2慢速', value: 0.5, speed: 2},
+        {label: '4慢速', value: 0.25, speed: 4},
+        {label: '8慢速', value: 0.125, speed: 8},
+      ]
+    },
+    mounted() {
+      this.addPlayer();
+    },
+    methods: {
+      addPlayer() {
+        let obj = {
+          el: `video${Math.random().toString().slice(2,9)}`, // 播放器dom
+          assetURL: '',
+          hsPlayer: null,
+          loading: null,
+          isPlaying: false,
+          videoLoading: false,
+          type: 'live',
+          reconnectTimer: null,
+        }
+        this.videoList.push(obj);
+      },
+      // 倍速
+      rateHandle(item) {
+        item.hsPlayer.speed(item.playbackRate);
+      },
+      wsInit(item) {
+        item.videoLoading = true;
+        item.loading = this.$loading({
+          target: '.video-main',
+          lock: true,
+          text: 'Loading',
+          spinner: 'el-icon-loading',
+          background: 'rgba(0, 0, 0, 0.7)'
+        });
+        item.hsPlayer = new HSPlayer({
+          node: item.el,
+          wsUrl: item.assetURL,
+          type: item.type,
+          debug: true,
+        })
+        if (item.reconnectTimer) {
+          clearInterval(item.reconnectTimer)
+        }
+        item.hsPlayer.on('VIDEO_PLAY_SUCESS', () => {
+          item.isPlaying = true;
+          item.videoLoading = false;
+          item.loading.close();
+        })
+        item.hsPlayer.on('ABNORMAL_DISCONNECT', () => {
+          item.reconnectTimer = setInterval(() => {
+            this.wsInit(item);
+          }, 3000)
+        })
+      },
+      wsDestroy(item) {
+        item.isPlaying = false;
+        item.hsPlayer.destroy();
+        this.wsReset(item);
+      },
+      wsReset(item) {
+        Object.assign(item, {
+          hsPlayer: null,
+          videoLoading: false,
+        })
+      },
+      wsRemove(index) {
+        this.videoList.splice(index, 1)
+      },
+      wsPause(item) {
+        item.hsPlayer.pause();
+      },
+      wsContinue(item) {
+        item.hsPlayer.play();
+      },
+      wsClose(item) {
+        item.hsPlayer.close();
+      },
+      wsCheckBu(item) {
+        item.hsPlayer.clearBuffer();
+      }
+    }
+  })
+</script>
+</body>
+</html>
